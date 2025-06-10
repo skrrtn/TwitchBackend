@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twitch Chat Monitor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            min-height: 100vh;
+            color: #e2e8f0;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background:
+                radial-gradient(circle at 20% 50%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 40% 80%, rgba(14, 165, 233, 0.15) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .menu-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            z-index: 1000;
+        }
+
+        .menu-bar .logo {
+            font-size: 1.2rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .menu-bar .actions {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .status-indicator.connected {
+            background: rgba(34, 197, 94, 0.2);
+            border: 1px solid rgba(34, 197, 94, 0.4);
+            color: #22c55e;
+        }
+
+        .status-indicator.disconnected {
+            background: rgba(248, 113, 113, 0.2);
+            border: 1px solid rgba(248, 113, 113, 0.4);
+            color: #f87171;
+        }
+
+        .status-indicator.connecting {
+            background: rgba(59, 130, 246, 0.2);
+            border: 1px solid rgba(59, 130, 246, 0.4);
+            color: #3b82f6;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .glass-btn {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            color: #e2e8f0;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .glass-btn:hover {
+            background: rgba(59, 130, 246, 0.2);
+            border-color: rgba(59, 130, 246, 0.5);
+            transform: translateY(-1px);
+        }
+
+        .glass-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .glass-btn.primary {
+            background: rgba(59, 130, 246, 0.3);
+            border: 1px solid rgba(59, 130, 246, 0.5);
+        }
+
+        .glass-btn.primary:hover {
+            background: rgba(59, 130, 246, 0.5);
+        }
+
+
+        .main-content {
+            margin-top: 60px;
+            padding: 20px;
+            height: calc(100vh - 60px);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .content-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+            height: 100%;
+        }
+
+        .chat-panel {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(20px);
+            border-radius: 16px;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .chat-header h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .chat-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .chat-container {
+            margin: 0;
+            padding: 3px;
+            flex: 1;
+            overflow-y: auto;
+            min-height: 0;
+        }
+
+        .chat-container::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .chat-container::-webkit-scrollbar-track {
+            background: rgba(30, 41, 59, 0.3);
+            border-radius: 3px;
+        }
+
+        .chat-container::-webkit-scrollbar-thumb {
+            background: rgba(59, 130, 246, 0.4);
+            border-radius: 3px;
+        }
+
+        .chat-container::-webkit-scrollbar-thumb:hover {
+            background: rgba(59, 130, 246, 0.6);
+        }
+
+        .message {
+            margin: 1px 0;
+            padding: 4px;
+            padding-left: 5px;
+            border-radius: 8px;
+            background: rgba(30, 41, 59, 0.4);
+            border-left: 3px solid rgba(59, 130, 246, 0.4);
+            line-height: 1.5;
+            transition: all 0.3s ease;
+        }
+
+        .message:hover {
+            background: rgba(59, 130, 246, 0.1);
+        }
+
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 1px;
+            flex-wrap: nowrap;
+        }
+
+        .message-header .left-section {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            flex-direction: row-reverse;
+        }
+
+        .message-header .right-section {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 4px;
+        }
+
+        .message-timestamp {
+            font-size: 0.75rem;
+            color: rgba(148, 163, 184, 0.8);
+            font-weight: 500;
+        }
+
+        .message-channel {
+            font-size: 0.75rem;
+            color: rgba(59, 130, 246, 1);
+            font-weight: 600;
+            background: rgba(59, 130, 246, 0.2);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .badges {
+            display: flex;
+            gap: 4px;
+            align-items: flex-start;
+        }
+
+        .badge {
+            display: none;
+        }
+
+        .badge.subscriber,
+        .badge.moderator,
+        .badge.broadcaster {
+            display: inline-block;
+            text-transform: uppercase;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            color: white;
+        }
+
+        .badge.subscriber {
+            background: rgba(59, 130, 246, 0.8);
+        }
+
+        .badge.moderator {
+            background: rgba(34, 197, 94, 0.8);
+        }
+
+        .badge.broadcaster {
+            background: rgba(248, 113, 113, 0.8);
+        }
+
+        .message-user {
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-top: 0;
+            padding-top: 0;
+            line-height: 1;
+        }
+
+        .message-text {
+            font-size: 0.9rem;
+            word-wrap: break-word;
+            margin-top: 1px;
+        }
+
+        .event {
+            background: rgba(59, 130, 246, 0.2);
+            border-left-color: rgba(59, 130, 246, 0.8);
+            position: relative;
+        }
+
+        .event.subscription {
+            background: rgba(34, 197, 94, 0.2);
+            border-left-color: rgba(34, 197, 94, 0.8);
+        }
+
+        .event.bits {
+            background: rgba(245, 158, 11, 0.2);
+            border-left-color: rgba(245, 158, 11, 0.8);
+        }
+
+        .event.timeout,
+        .event.ban {
+            background: rgba(248, 113, 113, 0.2);
+            border-left-color: rgba(248, 113, 113, 0.8);
+        }
+
+        .event-type {
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            color: rgba(226, 232, 240, 0.8);
+            margin-bottom: 4px;
+            letter-spacing: 0.5px;
+        }
+
+        .system-message {
+            background: rgba(30, 41, 59, 0.6);
+            border-left-color: rgba(148, 163, 184, 0.6);
+            font-style: italic;
+        }
+
+        .system-message.success {
+            background: rgba(34, 197, 94, 0.2);
+            border-left-color: rgba(34, 197, 94, 0.8);
+        }
+
+        .system-message.error {
+            background: rgba(248, 113, 113, 0.2);
+            border-left-color: rgba(248, 113, 113, 0.8);
+        }
+
+        .system-message.warn {
+            background: rgba(245, 158, 11, 0.2);
+            border-left-color: rgba(245, 158, 11, 0.8);
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(5px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal {
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(20px);
+            border-radius: 16px;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            padding: 24px;
+            max-width: 400px;
+            width: 90%;
+            transform: scale(0.9) translateY(20px);
+            transition: all 0.3s ease;
+        }
+
+        .modal-overlay.active .modal {
+            transform: scale(1) translateY(0);
+        }
+
+        .modal h3 {
+            margin-bottom: 16px;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .modal-form {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .input-group label {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .glass-input {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            padding: 12px;
+            color: white;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        .glass-input:focus {
+            outline: none;
+            border-color: rgba(145, 71, 255, 0.5);
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .glass-input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+
+        .connected-channels-section {
+            margin-bottom: 20px;
+        }
+
+        .connected-channels-section h4 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .modal-channels-list {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            border-radius: 8px;
+            background: rgba(30, 41, 59, 0.3);
+        }
+
+        .modal-channels-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .modal-channels-list::-webkit-scrollbar-track {
+            background: rgba(30, 41, 59, 0.3);
+            border-radius: 3px;
+        }
+
+        .modal-channels-list::-webkit-scrollbar-thumb {
+            background: rgba(59, 130, 246, 0.4);
+            border-radius: 3px;
+        }
+
+        .channel-item {
+            background: rgba(30, 41, 59, 0.6);
+            border-bottom: 1px solid rgba(59, 130, 246, 0.1);
+            padding: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.3s ease;
+        }
+
+        .channel-item:last-child {
+            border-bottom: none;
+        }
+
+        .channel-item:hover {
+            background: rgba(59, 130, 246, 0.15);
+        }
+
+        .channel-name {
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .remove-btn {
+            background: rgba(248, 113, 113, 0.2);
+            border: 1px solid rgba(248, 113, 113, 0.4);
+            color: #f87171;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .remove-btn:hover {
+            background: rgba(248, 113, 113, 0.4);
+            transform: scale(1.1);
+        }
+
+        .empty-state-small {
+            text-align: center;
+            padding: 20px;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            .menu-bar {
+                padding: 0 15px;
+            }
+
+            .menu-bar .logo {
+                font-size: 1rem;
+            }
+
+            .main-content {
+                padding: 15px;
+            }
+
+            .content-grid {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+
+            .chat-panel {
+                min-height: 400px;
+            }
+
+            .modal {
+                padding: 20px;
+                margin: 20px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .menu-bar .actions {
+                gap: 8px;
+            }
+
+            .glass-btn {
+                padding: 6px 12px;
+                font-size: 0.8rem;
+            }
+
+            .status-indicator {
+                padding: 4px 8px;
+                font-size: 0.75rem;
+            }
+
+            .message-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 4px;
+            }
+        }
+
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .empty-state h3 {
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .empty-state p {
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+
+<body> <!-- Menu Bar -->
+    <div class="menu-bar">
+        <div class="logo">
+            🟣 Twitch Monitor
+        </div>
+        <div class="actions">
+            <button id="channelModalBtn" class="glass-btn" onclick="openChannelModal()">
+                📺 Channels
+            </button>
+            <div id="statusIndicator" class="status-indicator disconnected">
+                <div class="status-dot"></div>
+                <span>Disconnected</span>
+            </div>
+        </div>
+    </div> <!-- Main Content -->
+    <div class="main-content">
+        <div class="content-grid">
+            <!-- Chat Panel -->
+            <div class="chat-panel">
+                <div class="chat-header">
+                    <h2>💬 Live Chat</h2>
+                    <div class="chat-controls">
+                        <button class="glass-btn" onclick="clearChat()">Clear</button>
+                    </div>
+                </div>
+                <div id="chatContainer" class="chat-container">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">💬</div>
+                        <h3>Ready to monitor</h3>
+                        <p>Click "Channels" in the top bar to get started!</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div> <!-- Channel Modal -->
+    <div id="channelModal" class="modal-overlay">
+        <div class="modal">
+            <h3>📺 Manage Channels</h3>
+
+            <!-- Connected Channels List -->
+            <div class="connected-channels-section">
+                <h4>Connected Channels</h4>
+                <div id="modalChannelsList" class="modal-channels-list">
+                    <div class="empty-state-small">
+                        <p>No channels connected</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Add Channel Form -->
+            <form class="modal-form" onsubmit="addChannel(event)">
+                <div class="input-group">
+                    <label for="channelInput">Add New Channel</label>
+                    <input type="text" id="channelInput" class="glass-input" placeholder="e.g., ninja, pokimane"
+                        autocomplete="off">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="glass-btn" onclick="closeChannelModal()">
+                        Close
+                    </button>
+                    <button type="submit" class="glass-btn primary">
+                        Add Channel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <script>
+        let socket = null;
+        let joinedChannels = new Set();
+        let reconnectAttempts = 0;
+        let maxReconnectAttempts = 5;
+        let reconnectDelay = 3000;
+        let autoScroll = true;
+        let messageCount = 0;
+        let maxMessages = 1000;        // DOM Elements
+        const statusIndicator = document.getElementById('statusIndicator');
+        const channelModal = document.getElementById('channelModal');
+        const channelInput = document.getElementById('channelInput');
+        const chatContainer = document.getElementById('chatContainer');
+        const modalChannelsList = document.getElementById('modalChannelsList');// Connection Management
+        function connect() {
+            if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
+                addSystemMessage("Already connected or connecting.", "info");
+                return;
+            }
+
+            const wsUrl = "ws://localhost:8080";
+            socket = new WebSocket(wsUrl);
+            updateConnectionStatus("connecting", "Connecting...");
+
+            socket.onopen = function () {
+                updateConnectionStatus("connected", "Connected");
+                reconnectAttempts = 0;
+                addSystemMessage("🎉 Connected to Twitch backend successfully!", "success");
+
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.send(JSON.stringify({ command: "ping" }));
+                }
+            };
+
+            socket.onmessage = function (event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    handleMessage(data);
+                } catch (e) {
+                    addSystemMessage(`Error parsing message: ${e}`, "error");
+                    console.error("Error parsing message:", e, event.data);
+                }
+            };
+
+            socket.onclose = function (event) {
+                let reason = "";
+                if (event.code) reason += `Code: ${event.code}`;
+                if (event.reason) reason += ` Reason: ${event.reason}`;
+                if (!reason) reason = "Connection closed.";
+
+                updateConnectionStatus("disconnected", "Disconnected");
+                addSystemMessage(`🔌 WebSocket disconnected. ${reason}`, "error");
+                console.log("WebSocket closed:", event);
+                joinedChannels.clear();
+
+                if (reconnectAttempts < maxReconnectAttempts) {
+                    reconnectAttempts++;
+                    addSystemMessage(`🔄 Attempting to reconnect (${reconnectAttempts}/${maxReconnectAttempts})...`, "info");
+                    setTimeout(connect, reconnectDelay);
+                } else {
+                    addSystemMessage("❌ Max reconnect attempts reached. Please refresh the page to try again.", "error");
+                }
+            };
+
+            socket.onerror = function (error) {
+                updateConnectionStatus("disconnected", "Error");
+                addSystemMessage("🚨 WebSocket error. Check console for details.", "error");
+                console.error("WebSocket error:", error);
+            };
+        } function updateConnectionStatus(status, text) {
+            statusIndicator.className = `status-indicator ${status}`;
+            statusIndicator.querySelector('span').textContent = text;
+        }        // Channel Management
+        function openChannelModal() {
+            updateModalChannelsList();
+            channelModal.classList.add('active');
+            channelInput.focus();
+        }
+
+        function closeChannelModal() {
+            channelModal.classList.remove('active');
+            channelInput.value = '';
+        }
+
+        function addChannel(event) {
+            event.preventDefault();
+            const channel = channelInput.value.trim().toLowerCase();
+
+            if (!channel) {
+                addSystemMessage("⚠️ Please enter a channel name.", "warn");
+                return;
+            }
+
+            if (joinedChannels.has(channel)) {
+                addSystemMessage(`ℹ️ Already monitoring #${channel}.`, "info");
+                closeChannelModal();
+                return;
+            }
+
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({ command: "join_channel", channel: channel }));
+                closeChannelModal();
+            } else {
+                addSystemMessage("❌ WebSocket is not connected. Please connect first.", "error");
+            }
+        } function removeChannel(channel) {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({ command: "leave_channel", channel: channel }));
+            } else {
+                addSystemMessage("❌ WebSocket is not connected.", "error");
+            }
+        }
+
+        function updateModalChannelsList() {
+            if (joinedChannels.size === 0) {
+                modalChannelsList.innerHTML = `
+                    <div class="empty-state-small">
+                        <p>No channels connected</p>
+                    </div>
+                `;
+                return;
+            }
+
+            modalChannelsList.innerHTML = '';
+            joinedChannels.forEach(channel => {
+                const channelItem = document.createElement('div');
+                channelItem.className = 'channel-item';
+                channelItem.innerHTML = `
+                    <div class="channel-name">
+                        <span>📺</span>
+                        <span>#${escapeHtml(channel)}</span>
+                    </div>
+                    <div class="remove-btn" onclick="removeChannel('${escapeHtml(channel)}')" title="Leave channel">
+                        ×
+                    </div>
+                `;
+                modalChannelsList.appendChild(channelItem);
+            });
+        }
+
+        // Message Handling
+        function handleMessage(data) {
+            console.log("Received from backend:", data);
+
+            switch (data.type) {
+                case 'chat_message':
+                    addChatMessage(data);
+                    break;
+                case 'twitch_event':
+                    addEvent(data);
+                    break;
+                case 'pong':
+                    console.log("Ping successful (pong received)");
+                    break;
+                default: if (data.status === 'joined_channel' && data.channel) {
+                    joinedChannels.add(data.channel);
+                    addSystemMessage(`✅ Successfully joined #${data.channel}.`, "success");
+                    // Update modal if it's open
+                    if (channelModal.classList.contains('active')) {
+                        updateModalChannelsList();
+                    }
+                } else if (data.status === 'left_channel' && data.channel) {
+                    joinedChannels.delete(data.channel);
+                    addSystemMessage(`👋 Successfully left #${data.channel}.`, "info");
+                    // Update modal if it's open
+                    if (channelModal.classList.contains('active')) {
+                        updateModalChannelsList();
+                    }
+                } else if (data.error) {
+                    addSystemMessage(`❌ Error: ${data.error} (Channel: ${data.channel || 'N/A'})`, "error");
+                } else {
+                    addSystemMessage(`🔍 Received unhandled message type: ${data.type || JSON.stringify(data)}`, "warn");
+                    console.warn("Unhandled message from backend:", data);
+                }
+                    break;
+            }
+        }
+
+        function addChatMessage(data) {
+            clearEmptyState();
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message';
+
+            const timestamp = new Date(data.timestamp).toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+
+            const user = data.user;
+            const userColor = user.color || '#ffffff';
+
+            let badgesHtml = '';
+            let displayedBadges = ['subscriber', 'moderator', 'broadcaster'];
+            badgesHtml = user.badges
+                .filter(badgeName => displayedBadges.includes(badgeName.split('/')[0]))
+                .map(badgeName => {
+                    const badgeClass = badgeName.split('/')[0];
+                    return `<span class="badge ${escapeHtml(badgeClass)}">${escapeHtml(badgeClass)}</span>`;
+                }).join('');
+
+            const leftSectionStyle = badgesHtml ? '' : 'style="margin-left: 0; padding-left: 0; display: flex; align-items: center;"';
+            const badgesStyle = badgesHtml ? '' : 'style="display: none;"';
+
+            messageDiv.innerHTML = `
+                <div class="message-header">
+                    <div class="left-section" ${leftSectionStyle}>
+                        <div class="badges" ${badgesStyle}>${badgesHtml}</div>
+                        <span class="message-user" style="color: ${escapeHtml(userColor)};">
+                            ${escapeHtml(user.display_name || user.username)}
+                        </span>
+                    </div>
+                    <div class="right-section">
+                        <span class="message-timestamp">${timestamp}</span>
+                        <span class="message-channel">#${escapeHtml(data.channel)}</span>
+                    </div>
+                </div>
+                <div class="message-text">${escapeHtml(data.message)}</div>
+            `;
+
+            appendMessage(messageDiv);
+        }
+
+        function addEvent(data) {
+            clearEmptyState();
+            const eventDiv = document.createElement('div');
+            eventDiv.className = `message event ${data.event_type.toLowerCase()}`;
+
+            const timestamp = new Date(data.timestamp).toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+
+            let eventText = `Event: ${data.event_type}`;
+
+            if (data.event_type === 'subscription' && data.data) {
+                eventText = `🎉 ${data.data.user || 'Someone'} just subscribed!`;
+                if (data.data.msg_param_cumulative_months > 1) {
+                    eventText += ` (${data.data.msg_param_cumulative_months} months)`;
+                }
+            } else if (data.event_type === 'bits' && data.data) {
+                eventText = `💎 ${data.data.user || 'Someone'} cheered ${data.data.bits} bits!`;
+            } else if (data.event_type === 'timeout' && data.data) {
+                eventText = `⏱️ ${data.data.target_user} was timed out` +
+                    (data.data.duration ? ` for ${data.data.duration}s.` : '.');
+            } else if (data.event_type === 'ban' && data.data) {
+                eventText = `🔨 ${data.data.target_user} was banned.`;
+            } else if (data.data && data.data.system_msg) {
+                eventText = escapeHtml(data.data.system_msg);
+            } else if (data.data && typeof data.data === 'object') {
+                eventText = `${data.event_type}: ${JSON.stringify(data.data)}`;
+            }
+
+            eventDiv.innerHTML = `
+                <div class="event-type">${escapeHtml(data.event_type.replace('_', ' '))}</div>
+                <div class="message-header">
+                    <span class="message-timestamp">${timestamp}</span>
+                    <span class="message-channel">#${escapeHtml(data.channel)}</span>
+                </div>
+                <div class="message-text">${eventText}</div>
+            `;
+
+            appendMessage(eventDiv);
+        }
+
+        function addSystemMessage(message, type = 'info') {
+            clearEmptyState();
+            const systemMessageDiv = document.createElement('div');
+            systemMessageDiv.className = `message system-message ${type}`;
+
+            const timestamp = new Date().toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+
+            systemMessageDiv.innerHTML = `
+                <div class="message-header">
+                    <span class="message-timestamp">${timestamp}</span>
+                    <span class="message-channel">SYSTEM</span>
+                </div>
+                <div class="message-text">${escapeHtml(message)}</div>
+            `;
+
+            appendMessage(systemMessageDiv);
+        }
+
+        function appendMessage(messageElement) {
+            chatContainer.prepend(messageElement); // Add new messages to the top
+            messageCount++;
+
+            // Limit message history to prevent performance issues
+            if (messageCount > maxMessages) {
+                const lastMessage = chatContainer.querySelector('.message:last-child');
+                if (lastMessage) {
+                    lastMessage.remove();
+                    messageCount--;
+                }
+            }
+
+            if (autoScroll) {
+                chatContainer.scrollTop = 0; // Scroll to the top for new messages
+            }
+        }
+
+        function clearEmptyState() {
+            const emptyState = chatContainer.querySelector('.empty-state');
+            if (emptyState) {
+                emptyState.remove();
+            }
+        }
+
+        function clearChat() {
+            chatContainer.innerHTML = '';
+            messageCount = 0;
+            addSystemMessage("🧹 Chat cleared.", "info");
+        }
+
+        // Utility Functions
+        function escapeHtml(text) {
+            if (typeof text !== 'string') return '';
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, function (m) { return map[m]; });
+        }
+
+        // Event Listeners
+        channelModal.addEventListener('click', function (e) {
+            if (e.target === channelModal) {
+                closeChannelModal();
+            }
+        });
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && channelModal.classList.contains('active')) {
+                closeChannelModal();
+            }
+        });
+
+        // Auto-scroll detection
+        chatContainer.addEventListener('scroll', function () {
+            const { scrollTop, scrollHeight, clientHeight } = chatContainer;
+            autoScroll = scrollTop + clientHeight >= scrollHeight - 10;
+        });
+
+        // Periodic ping to keep connection alive
+        setInterval(() => {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({ command: "ping" }));
+            }
+        }, 30000);        // Initialize UI
+        updateConnectionStatus("disconnected", "Disconnected");
+
+        // Auto-connect on page load
+        setTimeout(() => {
+            addSystemMessage("🚀 Starting Twitch Chat Monitor...", "info");
+            connect();
+        }, 500);
+    </script>
+</body>
+
+</html>
