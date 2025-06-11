@@ -450,7 +450,6 @@
             line-height: 1.4;
         }
 
-        /* Grid Layouts */
         .main-container.single {
             grid-template-columns: 1fr;
         }
@@ -460,12 +459,21 @@
         }
 
         .main-container.triple {
-            grid-template-columns: 1fr 1fr 1fr;
-        }
-
-        .main-container.quad {
+            display: grid;
             grid-template-columns: 1fr 1fr;
             grid-template-rows: 1fr 1fr;
+        }
+        .main-container.triple > :nth-child(1) {
+            grid-column: 1;
+            grid-row: 1;
+        }
+        .main-container.triple > :nth-child(2) {
+            grid-column: 1;
+            grid-row: 2;
+        }
+        .main-container.triple > :nth-child(3) {
+            grid-column: 2;
+            grid-row: 1 / span 2;
         }
 
         .main-container.six {
@@ -478,7 +486,6 @@
             grid-template-rows: 1fr 1fr 1fr;
         }
 
-        /* Responsive Design */
         @media (max-width: 1200px) {
             .main-container.triple {
                 grid-template-columns: 1fr 1fr;
@@ -543,7 +550,6 @@
 </head>
 
 <body>
-    <!-- Top Bar -->
     <div class="top-bar">
         <div class="logo">
             🟣 Multi-Channel Monitor
@@ -566,25 +572,21 @@
         </div>
     </div>
 
-    <!-- Main Container -->
     <div id="mainContainer" class="main-container">
-        <!-- Chat containers will be dynamically added here -->
     </div>
 
     <script>        let socket = null;
-        let channels = new Map(); // Map of channel name to container element
-        let videos = new Map(); // Map of channel name to video container element
+        let channels = new Map();
+        let videos = new Map();
         let reconnectAttempts = 0;
         let maxReconnectAttempts = 5;
         let reconnectDelay = 3000;
 
-        // DOM Elements
         const statusIndicator = document.getElementById('statusIndicator');
         const channelInput = document.getElementById('channelInput');
         const addBtn = document.getElementById('addBtn');
         const mainContainer = document.getElementById('mainContainer');
 
-        // Connection Management
         function connect() {
             if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
                 addSystemMessage("Already connected or connecting.", "info");
@@ -600,7 +602,6 @@
                 reconnectAttempts = 0;
                 addSystemMessage("🚀 Connected to Twitch backend!", "success");
                 
-                // Rejoin existing channels
                 channels.forEach((container, channel) => {
                     socket.send(JSON.stringify({ command: "join_channel", channel: channel }));
                 });
@@ -636,10 +637,8 @@
         function updateConnectionStatus(status, text) {
             statusIndicator.className = `status-indicator ${status}`;
             statusIndicator.querySelector('span').textContent = text;
-        }        // Channel Management
-        function handleKeyPress(event) {
+        }        function handleKeyPress(event) {
             if (event.key === 'Enter') {
-                // Default to adding chat when Enter is pressed
                 addChannel();
             }
         }        function addChannel() {
@@ -660,21 +659,17 @@
                 return;
             }
 
-            // Create chat container
             const container = createChatContainer(channelName);
             channels.set(channelName, container);
             mainContainer.appendChild(container);
             
-            // Set initial order to maintain layout stability
             const currentCount = channels.size + videos.size;
             container.style.order = currentCount - 1;
             
             updateGridLayout();
 
-            // Join channel via WebSocket
             socket.send(JSON.stringify({ command: "join_channel", channel: channelName }));
             
-            // Clear input
             channelInput.value = '';
             
             addSystemMessageToChannel(channelName, `Joining channel: ${channelName}`, "info");
@@ -691,33 +686,27 @@
                 return;
             }
 
-            // Create video container
             const container = createVideoContainer(channelName);
             videos.set(channelName, container);
             mainContainer.appendChild(container);
             
-            // Set initial order to maintain layout stability
             const currentCount = channels.size + videos.size;
             container.style.order = currentCount - 1;
             
             updateGridLayout();
             
-            // Clear input
             channelInput.value = '';
         }        function removeChannel(channelName) {
             if (!channels.has(channelName)) return;
 
-            // Leave channel via WebSocket
             if (socket && socket.readyState === WebSocket.OPEN) {
                 socket.send(JSON.stringify({ command: "leave_channel", channel: channelName }));
             }
 
-            // Remove container
             const container = channels.get(channelName);
             container.remove();
             channels.delete(channelName);
             
-            // Recompact order values if there are video containers
             if (hasVideoContainers()) {
                 recompactOrderValues();
             }
@@ -730,17 +719,14 @@
         function removeVideo(channelName) {
             if (!videos.has(channelName)) return;
 
-            // Remove container
             const container = videos.get(channelName);
             container.remove();
             videos.delete(channelName);
             
-            // Recompact order values
             recompactOrderValues();
             
             updateGridLayout();
         }        function recompactOrderValues() {
-            // Recompact order values to prevent gaps
             const visualOrder = getVisualOrder();
             
             visualOrder.forEach((item, index) => {
@@ -767,7 +753,6 @@
                 </div>
             `;
 
-            // Add drag event listeners
             addDragEventListeners(container);
 
             return container;
@@ -778,7 +763,6 @@
             container.dataset.type = 'video';
             container.draggable = true;
 
-            // Get the current hostname, or use localhost if running locally
             const hostname = window.location.hostname || 'localhost';
               container.innerHTML = `
                 <div class="video-header" data-drag-handle="true">
@@ -799,17 +783,15 @@
                     onerror="handleVideoError('${channelName}')">                </iframe>
             `;
 
-            // Add drag event listeners
             addDragEventListeners(container);
 
-            // Add timeout for loading
             setTimeout(() => {
                 const loading = document.getElementById(`loading-${channelName}`);
                 const video = document.getElementById(`video-${channelName}`);
                 if (loading && loading.style.display !== 'none' && video && video.style.display === 'none') {
                     handleVideoError(channelName);
                 }
-            }, 10000); // 10 second timeout
+            }, 10000);
 
             return container;
         }function hideVideoLoading(channelName) {
@@ -822,7 +804,6 @@
             }
         }
 
-        // Add error handling for video embeds
         function handleVideoError(channelName) {
             const loading = document.getElementById(`loading-${channelName}`);
             if (loading) {
@@ -839,12 +820,9 @@
         }function updateGridLayout() {
             const count = channels.size + videos.size;
             
-            // Remove all grid classes
             mainContainer.className = 'main-container';
             
-            // Add appropriate grid class
             if (count === 0) {
-                // No class needed for empty state
             } else if (count === 1) {
                 mainContainer.classList.add('single');
             } else if (count === 2) {
@@ -860,7 +838,6 @@
             }
         }
 
-        // Message Handling
         function handleMessage(data) {
             console.log("Received from backend:", data);
 
@@ -905,7 +882,6 @@
             const user = data.user;
             const userColor = user.color || '#ffffff';
 
-            // Build badges HTML
             let badgesHtml = '';
             if (user.badges && user.badges.length > 0) {
                 const displayedBadges = ['subscriber', 'moderator', 'broadcaster'];
@@ -929,7 +905,6 @@
                 <div class="message-text">${escapeHtml(data.message)}</div>
             `;            messagesContainer.insertBefore(messageDiv, messagesContainer.firstChild);
 
-            // Limit messages per channel
             const messages = messagesContainer.querySelectorAll('.message');
             if (messages.length > 500) {
                 messages[messages.length - 1].remove();
@@ -975,12 +950,10 @@
         }
 
         function addSystemMessage(message, type = 'info') {
-            // Add system message to all active channels
             channels.forEach((container, channel) => {
                 addSystemMessageToChannel(channel, message, type);
             });
 
-            // If no channels, log to console
             if (channels.size === 0) {
                 console.log(`System: ${message}`);
             }
@@ -1018,8 +991,7 @@
             if (emptyState) {
                 emptyState.remove();
             }
-        }        // Utility Functions
-        function escapeHtml(text) {
+        }        function escapeHtml(text) {
             if (typeof text !== 'string') return '';
             const map = {
                 '&': '&amp;',
@@ -1029,14 +1001,12 @@
                 "'": '&#039;'
             };
             return text.replace(/[&<>"']/g, function(m) { return map[m]; });
-        }        // Drag and Drop Functionality
-        let draggedElement = null;
+        }        let draggedElement = null;
         let dragStartIndex = -1;
 
         function addDragEventListeners(container) {
             const header = container.querySelector('.chat-header, .video-header');
             
-            // Prevent dragging when clicking the close button
             const closeBtn = header.querySelector('.close-btn');
             closeBtn.addEventListener('mousedown', (e) => {
                 e.stopPropagation();
@@ -1050,16 +1020,13 @@
             container.addEventListener('dragleave', handleDragLeave);
         }        function handleDragStart(e) {
             draggedElement = this;
-            // Use visual order instead of DOM order
             dragStartIndex = getVisualIndex(this);
             
             this.classList.add('dragging');
             
-            // Set drag data
             e.dataTransfer.effectAllowed = 'move';
             e.dataTransfer.setData('text/html', this.outerHTML);
             
-            // Add visual feedback
             setTimeout(() => {
                 this.style.opacity = '0.5';
             }, 0);
@@ -1088,21 +1055,17 @@
             }
 
             if (draggedElement !== this) {
-                // Use visual order instead of DOM order
                 const draggedIndex = getVisualIndex(draggedElement);
                 const targetIndex = getVisualIndex(this);
                 
-                // Check if any video containers are involved in the reordering
                 const hasVideoContainer = draggedElement.classList.contains('video-container') || 
                                         this.classList.contains('video-container') ||
                                         Array.from(mainContainer.children).some(child => 
                                             child.classList.contains('video-container'));
                 
                 if (hasVideoContainer) {
-                    // Use pure CSS order property - never move DOM elements
                     reorderWithCSSOnly(draggedIndex, targetIndex);
                 } else {
-                    // Standard DOM manipulation for chat-only layouts
                     if (draggedIndex < targetIndex) {
                         mainContainer.insertBefore(draggedElement, this.nextSibling);
                     } else {
@@ -1110,7 +1073,6 @@
                     }
                 }
                 
-                // Update the channels map order
                 updateChannelsOrder();
             }
 
@@ -1120,21 +1082,16 @@
             
             const visualOrder = getVisualOrder();
             
-            // Remove the dragged element from its current position
             const draggedElement = visualOrder.splice(draggedIndex, 1)[0];
             
-            // Insert it at the target position
             visualOrder.splice(targetIndex, 0, draggedElement);
             
-            // Apply new order values
             visualOrder.forEach((item, index) => {
                 item.element.style.order = index;
             });
             
-            // Store the visual order for persistence
             updateVisualOrder();
         }        function updateVisualOrder() {
-            // Store the current visual order based on CSS order property
             const visualOrder = getVisualOrder();
             
             console.log('Visual order:', visualOrder.map(item => ({ 
@@ -1144,20 +1101,17 @@
             })));
         }
 
-        // Utility function to reset layout order (useful for debugging)
         function resetLayoutOrder() {
             const children = Array.from(mainContainer.children);
             children.forEach((child, index) => {
                 child.style.order = index;
             });
             console.log('Layout order reset to DOM order');
-        }        // Function to check if there are any video containers
-        function hasVideoContainers() {
+        }        function hasVideoContainers() {
             return Array.from(mainContainer.children).some(child => 
                 child.classList.contains('video-container'));
         }
 
-        // Get the visual index of an element based on CSS order property
         function getVisualIndex(element) {
             const children = Array.from(mainContainer.children);
             const visualOrder = children
@@ -1170,7 +1124,6 @@
             return visualOrder.findIndex(item => item.element === element);
         }
 
-        // Get all elements sorted by visual order
         function getVisualOrder() {
             const children = Array.from(mainContainer.children);
             return children
@@ -1182,11 +1135,9 @@
                 }))
                 .sort((a, b) => a.order - b.order);
         }function handleDragEnd(e) {
-            // Clean up
             this.classList.remove('dragging');
             this.style.opacity = '';
             
-            // Remove drag-over class from all containers
             document.querySelectorAll('.chat-container, .video-container').forEach(container => {
                 container.classList.remove('drag-over');
             });
@@ -1194,38 +1145,32 @@
             draggedElement = null;
             dragStartIndex = -1;
         }        function updateChannelsOrder() {
-            // This function can be used to persist the order if needed
-            // For now, we'll just log the new order based on visual order
             const visualOrder = getVisualOrder();
             const newOrder = visualOrder.map(item => ({
                 channel: item.channel,
                 type: item.type
             }));
             console.log('New container order:', newOrder);
-        }// Event Listeners
+        }
         document.addEventListener('keydown', function(e) {
             if (e.ctrlKey && e.key === 'Enter') {
                 addChannel();
             } else if (e.ctrlKey && e.shiftKey && e.key === 'Enter') {
                 addVideo();
             } else if (e.ctrlKey && e.shiftKey && e.key === 'R') {
-                // Ctrl+Shift+R to reset layout order
                 resetLayoutOrder();
                 e.preventDefault();
             }
         });
 
-        // Periodic ping to keep connection alive
         setInterval(() => {
             if (socket && socket.readyState === WebSocket.OPEN) {
                 socket.send(JSON.stringify({ command: "ping" }));
             }
         }, 30000);
 
-        // Initialize
         updateConnectionStatus("disconnected", "Disconnected");
 
-        // Auto-connect on page load
         setTimeout(() => {
             addSystemMessage("🚀 Starting Multi-Channel Twitch Monitor...", "info");
             connect();
