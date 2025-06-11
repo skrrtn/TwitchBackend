@@ -712,17 +712,19 @@ class TwitchBackend:
 
         async def handler(websocket):
             try:
-                # Add connection attempt logging
-                remote_address = f"{websocket.remote_address[0]}:{websocket.remote_address[1]}"
+
+                remote_address = (
+                    f"{websocket.remote_address[0]}:{websocket.remote_address[1]}"
+                )
                 logger.info(f"New WebSocket connection attempt from {remote_address}")
 
-                # Set a connection timeout
                 await asyncio.wait_for(
-                    self._handle_websocket_connection(websocket),
-                    timeout=60  # 60 second timeout for initial handshake
+                    self._handle_websocket_connection(websocket), timeout=60
                 )
             except asyncio.TimeoutError:
-                logger.error(f"Connection timeout for {getattr(websocket, 'remote_address', 'unknown')}")
+                logger.error(
+                    f"Connection timeout for {getattr(websocket, 'remote_address', 'unknown')}"
+                )
                 try:
                     await websocket.close(1001, "Connection timeout")
                 except Exception:
@@ -730,8 +732,10 @@ class TwitchBackend:
             except websockets.exceptions.InvalidMessage as e:
                 logger.error(f"Invalid WebSocket handshake: {e}")
                 try:
-                    # Send error response before closing
-                    error_response = json.dumps({"error": "Invalid WebSocket handshake"})
+
+                    error_response = json.dumps(
+                        {"error": "Invalid WebSocket handshake"}
+                    )
                     await websocket.send(error_response)
                     await websocket.close(1002, "Invalid WebSocket handshake")
                 except Exception:
@@ -739,28 +743,29 @@ class TwitchBackend:
             except websockets.exceptions.ConnectionClosedError as e:
                 logger.info(f"Connection closed by client: {e}")
             except Exception as e:
-                logger.error(f"Unexpected error in WebSocket handler: {e}", exc_info=True)
+                logger.error(
+                    f"Unexpected error in WebSocket handler: {e}", exc_info=True
+                )
                 try:
                     await websocket.close(1011, "Internal server error")
                 except Exception:
                     pass
 
-        # Create the server with specific settings
         server = await websockets.serve(
             handler,
             self.host,
             self.port,
-            ping_interval=20,  # Send ping every 20 seconds
-            ping_timeout=10,   # Wait 10 seconds for pong response
-            close_timeout=10,  # Wait 10 seconds for close handshake
-            max_size=2**20,   # 1MB max message size
-            max_queue=32      # Max queue size for outgoing messages
+            ping_interval=20,
+            ping_timeout=10,
+            close_timeout=10,
+            max_size=2**20,
+            max_queue=32,
         )
 
         logger.info(f"WebSocket server is running on {self.host}:{self.port}")
-        
+
         try:
-            await asyncio.Future()  # Keep the server running
+            await asyncio.Future()
         except asyncio.CancelledError:
             logger.info("WebSocket server shutdown requested")
             server.close()
