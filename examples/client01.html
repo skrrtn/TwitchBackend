@@ -475,6 +475,11 @@
             grid-template-columns: 1fr 1fr;
         }
 
+        .main-container.dual-vertical {
+            grid-template-columns: 1fr;
+            grid-template-rows: 1fr 1fr;
+        }
+
         .main-container.triple {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -596,6 +601,7 @@
         let reconnectAttempts = 0;
         let maxReconnectAttempts = 5;
         let reconnectDelay = 3000;
+        let dualLayoutVertical = false;
 
         const statusIndicator = document.getElementById('statusIndicator');
         const channelInput = document.getElementById('channelInput');
@@ -716,11 +722,14 @@
 
             if (socket && socket.readyState === WebSocket.OPEN) {
                 socket.send(JSON.stringify({ command: "leave_channel", channel: channelName }));
-            }
-
-            const container = channels.get(channelName);
+            } const container = channels.get(channelName);
             container.remove();
             channels.delete(channelName);
+
+            const newCount = channels.size + videos.size;
+            if (newCount !== 2) {
+                dualLayoutVertical = false;
+            }
 
             if (hasVideoContainers()) {
                 recompactOrderValues();
@@ -732,20 +741,22 @@
         }
 
         function removeVideo(channelName) {
-            if (!videos.has(channelName)) return;
-
-            const container = videos.get(channelName);
+            if (!videos.has(channelName)) return; const container = videos.get(channelName);
             container.remove();
             videos.delete(channelName);
+
+            const newCount = channels.size + videos.size;
+            if (newCount !== 2) {
+                dualLayoutVertical = false;
+            }
 
             recompactOrderValues();
 
             updateGridLayout();
         } function recompactOrderValues() {
-            const visualOrder = getVisualOrder();
-
-            visualOrder.forEach((item, index) => {
-                item.element.style.order = index;
+            const children = Array.from(mainContainer.children);
+            children.forEach((child, index) => {
+                child.style.order = index;
             });
         } function createChatContainer(channelName) {
             const container = document.createElement('div');
@@ -841,7 +852,11 @@
             } else if (count === 1) {
                 mainContainer.classList.add('single');
             } else if (count === 2) {
-                mainContainer.classList.add('dual');
+                if (dualLayoutVertical) {
+                    mainContainer.classList.add('dual-vertical');
+                } else {
+                    mainContainer.classList.add('dual');
+                }
             } else if (count === 3) {
                 mainContainer.classList.add('triple');
             } else if (count <= 4) {
@@ -1045,14 +1060,30 @@
             setTimeout(() => {
                 this.style.opacity = '0.5';
             }, 0);
-        }
-
-        function handleDragOver(e) {
+        } function handleDragOver(e) {
             if (e.preventDefault) {
                 e.preventDefault();
+            } e.dataTransfer.dropEffect = 'move';
+
+            const count = channels.size + videos.size;
+            if (count === 2 && draggedElement && this !== draggedElement) {
+                const rect = this.getBoundingClientRect(); const mouseY = e.clientY;
+                const mouseX = e.clientX;
+
+                const centerY = rect.top + rect.height / 2; const centerX = rect.left + rect.width / 2;
+
+                const isVerticalZone = Math.abs(mouseY - centerY) > Math.abs(mouseX - centerX);
+                if (isVerticalZone) {
+                    if (!mainContainer.classList.contains('dual-vertical')) {
+                        mainContainer.className = 'main-container dual-vertical';
+                    }
+                } else {
+                    if (!mainContainer.classList.contains('dual')) {
+                        mainContainer.className = 'main-container dual';
+                    }
+                }
             }
 
-            e.dataTransfer.dropEffect = 'move';
             return false;
         }
 
@@ -1070,22 +1101,43 @@
             }
 
             if (draggedElement !== this) {
-                const draggedIndex = getVisualIndex(draggedElement);
-                const targetIndex = getVisualIndex(this);
+                const count = channels.size + videos.size;
 
-                const hasVideoContainer = draggedElement.classList.contains('video-container') ||
-                    this.classList.contains('video-container') ||
-                    Array.from(mainContainer.children).some(child =>
-                        child.classList.contains('video-container'));
+                if (count === 2) {
+                    const rect = this.getBoundingClientRect();
+                    const mouseY = e.clientY;
+                    const mouseX = e.clientX;
 
-                if (hasVideoContainer) {
-                    reorderWithCSSOnly(draggedIndex, targetIndex);
+                    const centerY = rect.top + rect.height / 2; const centerX = rect.left + rect.width / 2;
+
+                    const isVerticalZone = Math.abs(mouseY - centerY) > Math.abs(mouseX - centerX); dualLayoutVertical = isVerticalZone;
+
+                    let shouldInsertAfter = false; if (isVerticalZone) {
+                        shouldInsertAfter = mouseY > centerY;
+                    } else {
+                        shouldInsertAfter = mouseX > centerX;
+                    }
+
+                    if (shouldInsertAfter) {
+                        mainContainer.insertBefore(draggedElement, this.nextSibling);
+                    } else {
+                        mainContainer.insertBefore(draggedElement, this);
+                    }
+                    updateGridLayout();
                 } else {
+                    const draggedIndex = getVisualIndex(draggedElement);
+                    const targetIndex = getVisualIndex(this);
+
                     if (draggedIndex < targetIndex) {
                         mainContainer.insertBefore(draggedElement, this.nextSibling);
                     } else {
                         mainContainer.insertBefore(draggedElement, this);
                     }
+
+                    const children = Array.from(mainContainer.children);
+                    children.forEach((child, index) => {
+                        child.style.order = index;
+                    });
                 }
 
                 updateChannelsOrder();
@@ -1125,18 +1177,9 @@
         } function hasVideoContainers() {
             return Array.from(mainContainer.children).some(child =>
                 child.classList.contains('video-container'));
-        }
-
-        function getVisualIndex(element) {
+        } function getVisualIndex(element) {
             const children = Array.from(mainContainer.children);
-            const visualOrder = children
-                .map(child => ({
-                    element: child,
-                    order: parseInt(child.style.order || 0)
-                }))
-                .sort((a, b) => a.order - b.order);
-
-            return visualOrder.findIndex(item => item.element === element);
+            return children.indexOf(element);
         }
 
         function getVisualOrder() {
@@ -1157,6 +1200,13 @@
                 container.classList.remove('drag-over');
             });
 
+            const count = channels.size + videos.size;
+            if (count === 2) {
+                updateGridLayout();
+            } else if (count > 2) {
+                updateGridLayout();
+            }
+
             draggedElement = null;
             dragStartIndex = -1;
         } function updateChannelsOrder() {
@@ -1166,14 +1216,23 @@
                 type: item.type
             }));
             console.log('New container order:', newOrder);
-        }
-        document.addEventListener('keydown', function (e) {
+        } document.addEventListener('keydown', function (e) {
             if (e.ctrlKey && e.key === 'Enter') {
                 addChannel();
             } else if (e.ctrlKey && e.shiftKey && e.key === 'Enter') {
                 addVideo();
             } else if (e.ctrlKey && e.shiftKey && e.key === 'R') {
                 resetLayoutOrder();
+                e.preventDefault();
+            } else if (e.ctrlKey && (e.key === 'o' || e.key === 'O')) {
+                const count = channels.size + videos.size;
+                if (count === 2) {
+                    dualLayoutVertical = !dualLayoutVertical;
+                    updateGridLayout();
+                    console.log(`Dual layout switched to: ${dualLayoutVertical ? 'vertical' : 'horizontal'}`);
+                } else {
+                    console.log(`Layout toggle only works with exactly 2 containers (current: ${count})`);
+                }
                 e.preventDefault();
             }
         });
