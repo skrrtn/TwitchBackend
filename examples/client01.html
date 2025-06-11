@@ -612,9 +612,21 @@
         const mainContainer = document.getElementById('mainContainer');
 
         function connect() {
-            if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
-                addSystemMessage("Already connected or connecting.", "info");
-                return;
+            if (socket) {
+                if (socket.readyState === WebSocket.OPEN) {
+                    addSystemMessage("Already connected.", "info");
+                    return;
+                }
+                if (socket.readyState === WebSocket.CONNECTING) {
+                    addSystemMessage("Connection already in progress.", "info");
+                    return;
+                }
+
+                try {
+                    socket.close();
+                } catch (e) {
+                    console.error("Error closing existing socket:", e);
+                }
             }
 
             const wsUrl = "ws://localhost:8080";
@@ -626,6 +638,7 @@
                 reconnectAttempts = 0;
                 addSystemMessage("🚀 Connected to Twitch backend!", "success");
 
+
                 channels.forEach((container, channel) => {
                     socket.send(JSON.stringify({ command: "join_channel", channel: channel }));
                 });
@@ -635,6 +648,11 @@
                 try {
                     const data = JSON.parse(event.data);
                     handleMessage(data);
+
+
+                    if (data.type === "pong") {
+                        reconnectAttempts = 0;
+                    }
                 } catch (error) {
                     console.error("Failed to parse WebSocket message:", error);
                 }
@@ -643,12 +661,21 @@
             socket.onclose = function (event) {
                 updateConnectionStatus("disconnected", "Disconnected");
 
-                if (!event.wasClean && reconnectAttempts < maxReconnectAttempts) {
+
+
+
+
+                if (!event.wasClean && event.code !== 1000 && reconnectAttempts < maxReconnectAttempts) {
                     reconnectAttempts++;
                     addSystemMessage(`Connection lost. Reconnecting... (${reconnectAttempts}/${maxReconnectAttempts})`, "warn");
-                    setTimeout(connect, reconnectDelay * reconnectAttempts);
+
+
+                    const backoffDelay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
+                    setTimeout(connect, backoffDelay);
                 } else if (reconnectAttempts >= maxReconnectAttempts) {
                     addSystemMessage("Max reconnection attempts reached. Please refresh the page.", "error");
+                } else if (event.wasClean) {
+                    addSystemMessage("Connection closed cleanly.", "info");
                 }
             };
 
@@ -1240,17 +1267,15 @@
             }
         });
 
-        // Keep connection alive with heartbeat
+
         function startHeartbeat() {
             return setInterval(() => {
                 if (socket && socket.readyState === WebSocket.OPEN) {
                     socket.send(JSON.stringify({ command: "ping" }));
                     console.log("Heartbeat ping sent");
-                } else if (socket && socket.readyState === WebSocket.CLOSED) {
-                    console.log("Socket closed, attempting reconnect...");
-                    connect();
                 }
-            }, 15000); // Send heartbeat every 15 seconds
+
+            }, 30000);
         }
 
         let heartbeatInterval = null;
@@ -1260,12 +1285,12 @@
         setTimeout(() => {
             addSystemMessage("🚀 Starting Multi-Channel Twitch Monitor...", "info");
             connect();
-            // Start heartbeat after initial connection
+
             if (heartbeatInterval) clearInterval(heartbeatInterval);
             heartbeatInterval = startHeartbeat();
         }, 500);
 
-        // Clean up on page unload
+
         window.addEventListener('beforeunload', () => {
             if (heartbeatInterval) clearInterval(heartbeatInterval);
             if (socket) socket.close();

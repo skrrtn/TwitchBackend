@@ -718,9 +718,7 @@ class TwitchBackend:
                 )
                 logger.info(f"New WebSocket connection attempt from {remote_address}")
 
-                await asyncio.wait_for(
-                    self._handle_websocket_connection(websocket), timeout=60
-                )
+                await self._handle_websocket_connection(websocket)
             except asyncio.TimeoutError:
                 logger.error(
                     f"Connection timeout for {getattr(websocket, 'remote_address', 'unknown')}"
