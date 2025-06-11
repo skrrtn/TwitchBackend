@@ -1240,18 +1240,36 @@
             }
         });
 
-        setInterval(() => {
-            if (socket && socket.readyState === WebSocket.OPEN) {
-                socket.send(JSON.stringify({ command: "ping" }));
-            }
-        }, 30000);
+        // Keep connection alive with heartbeat
+        function startHeartbeat() {
+            return setInterval(() => {
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.send(JSON.stringify({ command: "ping" }));
+                    console.log("Heartbeat ping sent");
+                } else if (socket && socket.readyState === WebSocket.CLOSED) {
+                    console.log("Socket closed, attempting reconnect...");
+                    connect();
+                }
+            }, 15000); // Send heartbeat every 15 seconds
+        }
+
+        let heartbeatInterval = null;
 
         updateConnectionStatus("disconnected", "Disconnected");
 
         setTimeout(() => {
             addSystemMessage("🚀 Starting Multi-Channel Twitch Monitor...", "info");
             connect();
+            // Start heartbeat after initial connection
+            if (heartbeatInterval) clearInterval(heartbeatInterval);
+            heartbeatInterval = startHeartbeat();
         }, 500);
+
+        // Clean up on page unload
+        window.addEventListener('beforeunload', () => {
+            if (heartbeatInterval) clearInterval(heartbeatInterval);
+            if (socket) socket.close();
+        });
     </script>
 </body>
 

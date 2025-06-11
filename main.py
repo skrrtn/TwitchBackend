@@ -755,9 +755,9 @@ class TwitchBackend:
             handler,
             self.host,
             self.port,
-            ping_interval=20,
-            ping_timeout=10,
-            close_timeout=10,
+            ping_interval=30,
+            ping_timeout=20,
+            close_timeout=30,
             max_size=2**20,
             max_queue=32,
         )
