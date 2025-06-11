@@ -100,6 +100,9 @@
             font-weight: 500;
             transition: all 0.3s ease;
             backdrop-filter: blur(10px);
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
         }
 
         .add-btn:hover {
@@ -582,8 +585,8 @@
         <div class="channel-input-section">
             <input type="text" id="channelInput" class="channel-input"
                 placeholder="Enter Twitch channel name (e.g., ninja, shroud)" onkeypress="handleKeyPress(event)">
-            <button id="addBtn" class="add-btn" onclick="addChannel()">Add Chat</button>
-            <button id="addVideoBtn" class="add-btn" onclick="addVideo()">Add Video</button>
+            <button id="addBtn" class="add-btn" onclick="addChannel()">💬 Add Chat</button>
+            <button id="addVideoBtn" class="add-btn" onclick="addVideo()">📹 Add Video</button>
         </div>
 
         <div id="statusIndicator" class="status-indicator disconnected">
