@@ -57,6 +57,7 @@ A comprehensive Python backend for monitoring Twitch chat and events via IRC, ex
    Then edit `.env` with your actual credentials:
    ```
    TWITCH_CLIENT_ID=your_client_id
+   TWITCH_CLIENT_SECRET=your_client_secret
    TWITCH_ACCESS_TOKEN=your_oauth_token
    HOST=0.0.0.0
    PORT=8080
@@ -81,7 +82,7 @@ A comprehensive Python backend for monitoring Twitch chat and events via IRC, ex
    ```powershell
    Copy-Item example.env .env
    ```
-4. **Edit `.env`**: Open `.env` in Notepad or your preferred editor and enter your Twitch credentials.
+4. **Edit `.env`**: Open `.env` in Notepad or your preferred editor and enter your Twitch credentials. Make sure to include `TWITCH_CLIENT_SECRET` as well.
 5. **Check Python and pip**: Make sure Python 3.8+ and pip are installed and added to your PATH. Check with:
    ```cmd
    python --version
@@ -105,7 +106,7 @@ The WebSocket server will start on `ws://localhost:8080` (or your configured hos
 - Go to [Twitch Token Generator](https://twitchtokengenerator.com/)
 - Select "Bot Chat Token"
 - Authorize with your Twitch account
-- Copy the **Client ID** and **Access Token** (without the `oauth:` prefix) to your `.env` file
+- Copy the **Client ID**, **Client Secret**, and **Access Token** (without the `oauth:` prefix) to your `.env` file
 
 **Option B: Manual Setup (For production)**
 - Go to the [Twitch Developer Console](https://dev.twitch.tv/console/apps)
@@ -116,11 +117,11 @@ The WebSocket server will start on `ws://localhost:8080` (or your configured hos
   - **OAuth Redirect URLs**: `http://localhost` (or your domain)
   - **Category**: Select appropriate category
 - Click "Create"
-- Copy the **Client ID** from your application page
+- Copy the **Client ID** and **Client Secret** from your application page
 - Generate an OAuth token:
-  - Use the [Twitch Token Generator](https://twitchtokengenerator.com/) with your Client ID
+  - Use the [Twitch Token Generator](https://twitchtokengenerator.com/) with your Client ID and Client Secret
   - Or use the OAuth flow: `https://id.twitch.tv/oauth2/authorize?client_id=YOUR_CLIENT_ID&redirect_uri=http://localhost&response_type=token&scope=chat:read`
-- Copy both credentials to your `.env` file
+- Copy all credentials to your `.env` file
 
 ## Testing with the HTML Client
 1. Navigate to the examples directory and serve `client01.html` with a local web server:
