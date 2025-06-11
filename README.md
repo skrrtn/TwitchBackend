@@ -1,6 +1,8 @@
 # Twitch Backend
 A comprehensive Python backend for monitoring Twitch chat and events via IRC, exposing real-time data through WebSocket connections.
 
+![Twitch Client Example Screenshot](examples/screenshot.png)
+
 ## Features
 - **Real-time Chat Monitoring**: Connect to multiple Twitch channels simultaneously
 - **Rich User Information**: Display user badges (subscriber, moderator, VIP, broadcaster), username colors, and more
