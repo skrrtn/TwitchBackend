@@ -1,9 +1,7 @@
 # Twitch Backend
-
 A comprehensive Python backend for monitoring Twitch chat and events via IRC, exposing real-time data through WebSocket connections.
 
 ## Features
-
 - **Real-time Chat Monitoring**: Connect to multiple Twitch channels simultaneously
 - **Rich User Information**: Display user badges (subscriber, moderator, VIP, broadcaster), username colors, and more
 - **Event Handling**: Support for subscriptions, bits, timeouts, bans, raids, and other Twitch events
@@ -12,7 +10,6 @@ A comprehensive Python backend for monitoring Twitch chat and events via IRC, ex
 - **User Caching**: Efficient caching of user information to reduce API calls
 
 ## Prerequisites
-
 - Python 3.8+
 - Twitch Developer Account with OAuth token
 - Valid Twitch API credentials
@@ -126,7 +123,6 @@ The WebSocket server will start on `ws://localhost:8080` (or your configured hos
 - Copy both credentials to your `.env` file
 
 ## Testing with the HTML Client
-
 1. Navigate to the examples directory and serve `client01.html` with a local web server:
    ```bash
    cd examples
@@ -139,11 +135,9 @@ The WebSocket server will start on `ws://localhost:8080` (or your configured hos
 5. Watch real-time chat messages and events appear
 
 ## WebSocket API
-
 The WebSocket server provides a real-time API for monitoring Twitch chat and events. Connect to `ws://localhost:8080` (or your configured host/port).
 
 ### Client → Server Messages
-
 All messages must be sent as JSON objects with the following structure:
 
 #### 1. Join Channel
@@ -202,7 +196,6 @@ Keep the connection alive and test connectivity.
 ```
 
 ### Server → Client Messages
-
 The server sends various types of messages to subscribed clients:
 
 #### 1. Chat Messages
@@ -330,7 +323,6 @@ Error responses for invalid requests or server issues.
 ```
 
 ### Connection Management
-
 - **Automatic Channel Management**: When the first client subscribes to a channel, the backend automatically joins that Twitch IRC channel. When the last client unsubscribes, the backend leaves the IRC channel.
 - **Connection Keep-Alive**: Send periodic ping messages (every 30 seconds recommended) to maintain the connection.
 - **Reconnection**: Implement client-side reconnection logic with exponential backoff for production use.
@@ -383,7 +375,6 @@ setInterval(() => {
 
 
 ## Supported Events
-
 The backend monitors and processes the following Twitch events:
 
 - **Chat Messages**: Regular chat messages with full user information including badges, colors, and emotes
@@ -395,16 +386,8 @@ The backend monitors and processes the following Twitch events:
 - **User Notices**: Various other user-generated events and system messages
 - **Ritual Events**: First-time chat participation and other ritual events
 
-- **Chat Messages**: Regular chat messages with full user information
-- **Subscriptions**: New subscriptions, resubscriptions, gift subs
-- **Bits**: Bit donations/cheering
-- **Timeouts**: User timeouts with duration
-- **Bans**: User bans
-- **Raids**: Incoming raids from other channels
-- **User Notices**: Various other user-generated events
 
 ## Architecture
-
 The backend consists of several key components working together:
 
 - **TwitchAPI**: Handles Twitch Helix API requests for user and channel information with automatic session management
@@ -414,7 +397,6 @@ The backend consists of several key components working together:
 - **User Caching**: Efficient in-memory caching system to reduce API calls and improve performance
 
 ### Data Flow
-
 1. **IRC Connection**: Backend connects to Twitch IRC servers with OAuth authentication
 2. **Channel Management**: WebSocket clients request to join/leave channels
 3. **Message Processing**: IRC messages are parsed and converted to structured data
@@ -422,7 +404,6 @@ The backend consists of several key components working together:
 5. **Dynamic Scaling**: Channels are automatically joined/left based on client interest
 
 ## User Information
-
 The backend captures and provides comprehensive user information for each chat message:
 
 ### User Data Structure
@@ -457,14 +438,12 @@ The backend captures and provides comprehensive user information for each chat m
 - Cache invalidation handled automatically
 
 ## Dynamic Channel Management
-
 Channels are joined/left automatically based on WebSocket subscriptions:
 - When the first client subscribes to a channel, the bot joins that IRC channel
 - When the last client unsubscribes, the bot leaves the IRC channel
 - No manual channel management required
 
 ## Error Handling
-
 The backend implements comprehensive error handling and resilience features:
 
 ### IRC Connection Management
@@ -519,21 +498,18 @@ The backend implements comprehensive error handling and resilience features:
 - Ensure the IRC connection is stable (check backend logs)
 
 ### Debug Mode
-
 Enable detailed logging by modifying the logging level in `main.py`:
 ```python
 logging.basicConfig(level=logging.DEBUG)
 ```
 
 ### Performance Optimization
-
 For high-traffic channels:
 - Increase the `maxMessages` limit in the HTML client
 - Consider implementing message filtering on the client side
 - Monitor memory usage and implement message cleanup strategies
 
 ## Contributing
-
 We welcome contributions to improve the Twitch Backend! Here's how you can help:
 
 ### Development Setup
@@ -557,7 +533,6 @@ We welcome contributions to improve the Twitch Backend! Here's how you can help:
 - Test with different types of Twitch events
 
 ## License
-
 This project is open source and available under the [MIT License](https://opensource.org/licenses/MIT).
 
 ### MIT License
