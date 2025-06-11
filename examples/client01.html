@@ -162,9 +162,7 @@
             gap: 2px;
             padding: 2px;
             background: #0f172a;
-        }
-
-        .chat-container {
+        }        .chat-container {
             background: rgba(15, 23, 42, 0.8);
             backdrop-filter: blur(20px);
             border-radius: 12px;
@@ -173,15 +171,37 @@
             flex-direction: column;
             overflow: hidden;
             position: relative;
+            transition: all 0.3s ease;
         }
 
-        .chat-header {
+        .chat-container.dragging {
+            opacity: 0.7;
+            transform: scale(0.95);
+            z-index: 1000;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .chat-container.drag-over {
+            border-color: rgba(59, 130, 246, 0.8);
+            background: rgba(59, 130, 246, 0.1);
+        }.chat-header {
             padding: 12px 16px;
             border-bottom: 1px solid rgba(59, 130, 246, 0.2);
             display: flex;
             align-items: center;
             justify-content: space-between;
             background: rgba(15, 23, 42, 0.9);
+            cursor: grab;
+            user-select: none;
+            transition: all 0.3s ease;
+        }
+
+        .chat-header:active {
+            cursor: grabbing;
+        }
+
+        .chat-header:hover {
+            background: rgba(30, 41, 59, 0.9);
         }
 
         .chat-header h3 {
@@ -600,15 +620,14 @@
             updateGridLayout();
 
             addSystemMessage(`Left channel: ${channelName}`, "info");
-        }
-
-        function createChatContainer(channelName) {
+        }        function createChatContainer(channelName) {
             const container = document.createElement('div');
             container.className = 'chat-container';
             container.dataset.channel = channelName;
+            container.draggable = true;
 
             container.innerHTML = `
-                <div class="chat-header">
+                <div class="chat-header" data-drag-handle="true">
                     <h3>#${channelName}</h3>
                     <button class="close-btn" onclick="removeChannel('${channelName}')" title="Close channel">×</button>
                 </div>
@@ -620,6 +639,9 @@
                     </div>
                 </div>
             `;
+
+            // Add drag event listeners
+            addDragEventListeners(container);
 
             return container;
         }
@@ -806,9 +828,7 @@
             if (emptyState) {
                 emptyState.remove();
             }
-        }
-
-        // Utility Functions
+        }        // Utility Functions
         function escapeHtml(text) {
             if (typeof text !== 'string') return '';
             const map = {
@@ -819,6 +839,108 @@
                 "'": '&#039;'
             };
             return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+        }
+
+        // Drag and Drop Functionality
+        let draggedElement = null;
+        let dragStartIndex = -1;
+
+        function addDragEventListeners(container) {
+            const header = container.querySelector('.chat-header');
+            
+            // Prevent dragging when clicking the close button
+            const closeBtn = header.querySelector('.close-btn');
+            closeBtn.addEventListener('mousedown', (e) => {
+                e.stopPropagation();
+            });
+
+            container.addEventListener('dragstart', handleDragStart);
+            container.addEventListener('dragover', handleDragOver);
+            container.addEventListener('drop', handleDrop);
+            container.addEventListener('dragend', handleDragEnd);
+            container.addEventListener('dragenter', handleDragEnter);
+            container.addEventListener('dragleave', handleDragLeave);
+        }
+
+        function handleDragStart(e) {
+            draggedElement = this;
+            dragStartIndex = Array.from(mainContainer.children).indexOf(this);
+            
+            this.classList.add('dragging');
+            
+            // Set drag data
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', this.outerHTML);
+            
+            // Add visual feedback
+            setTimeout(() => {
+                this.style.opacity = '0.5';
+            }, 0);
+        }
+
+        function handleDragOver(e) {
+            if (e.preventDefault) {
+                e.preventDefault();
+            }
+            
+            e.dataTransfer.dropEffect = 'move';
+            return false;
+        }
+
+        function handleDragEnter(e) {
+            if (this !== draggedElement) {
+                this.classList.add('drag-over');
+            }
+        }
+
+        function handleDragLeave(e) {
+            this.classList.remove('drag-over');
+        }
+
+        function handleDrop(e) {
+            if (e.stopPropagation) {
+                e.stopPropagation();
+            }
+
+            if (draggedElement !== this) {
+                const draggedIndex = Array.from(mainContainer.children).indexOf(draggedElement);
+                const targetIndex = Array.from(mainContainer.children).indexOf(this);
+                
+                // Swap the elements
+                if (draggedIndex < targetIndex) {
+                    mainContainer.insertBefore(draggedElement, this.nextSibling);
+                } else {
+                    mainContainer.insertBefore(draggedElement, this);
+                }
+                
+                // Update the channels map order
+                updateChannelsOrder();
+            }
+
+            return false;
+        }
+
+        function handleDragEnd(e) {
+            // Clean up
+            this.classList.remove('dragging');
+            this.style.opacity = '';
+            
+            // Remove drag-over class from all containers
+            document.querySelectorAll('.chat-container').forEach(container => {
+                container.classList.remove('drag-over');
+            });
+            
+            draggedElement = null;
+            dragStartIndex = -1;
+        }
+
+        function updateChannelsOrder() {
+            // This function can be used to persist the order if needed
+            // For now, we'll just log the new order
+            const newOrder = Array.from(mainContainer.children).map(container => 
+                container.dataset.channel
+            );
+            console.log('New channel order:', newOrder);
         }
 
         // Event Listeners
