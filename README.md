@@ -10,6 +10,7 @@ A comprehensive Python backend for monitoring Twitch chat and events via IRC, ex
 - **Dynamic Channel Management**: Add/remove channels on-the-fly based on frontend requests
 - **WebSocket API**: Real-time communication with frontend applications
 - **User Caching**: Efficient caching of user information to reduce API calls
+- **Connected Users Count**: Monitor the number of active WebSocket connections in real-time
 
 ## Prerequisites
 - Python 3.8+
@@ -195,6 +196,24 @@ Keep the connection alive and test connectivity.
 ```json
 {
   "type": "pong"
+}
+```
+
+#### 4. Get Connected Users
+Request the current count of active WebSocket connections.
+
+**Request:**
+```json
+{
+  "command": "get_connected_users"
+}
+```
+
+**Response:**
+```json
+{
+  "type": "connected_users_count",
+  "count": 5
 }
 ```
 

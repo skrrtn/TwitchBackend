@@ -644,6 +644,17 @@ class TwitchBackend:
                     elif command == "ping":
                         await websocket.send(json.dumps({"type": "pong"}))
 
+                    elif command == "get_connected_users":
+                        count = len(self.websocket_manager.connections)
+                        await websocket.send(
+                            json.dumps(
+                                {
+                                    "type": "connected_users_count",
+                                    "count": count,
+                                }
+                            )
+                        )
+
                     else:
                         logger.warning(
                             f"Received unknown command from WebSocket {websocket.remote_address}: {data}"

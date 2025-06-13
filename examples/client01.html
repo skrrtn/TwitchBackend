@@ -607,6 +607,11 @@
         let dualLayoutVertical = false;
 
         const statusIndicator = document.getElementById('statusIndicator');
+        const connectedUsersCountSpan = document.createElement('small');
+        connectedUsersCountSpan.style.fontSize = '0.7rem';
+        connectedUsersCountSpan.style.marginLeft = '6px';
+        statusIndicator.querySelector('span').appendChild(connectedUsersCountSpan);
+
         const channelInput = document.getElementById('channelInput');
         const addBtn = document.getElementById('addBtn');
         const mainContainer = document.getElementById('mainContainer');
@@ -638,6 +643,7 @@
                 reconnectAttempts = 0;
                 addSystemMessage("🚀 Connected to Twitch backend!", "success");
 
+                socket.send(JSON.stringify({ command: "get_connected_users" }));
 
                 channels.forEach((container, channel) => {
                     socket.send(JSON.stringify({ command: "join_channel", channel: channel }));
@@ -649,9 +655,11 @@
                     const data = JSON.parse(event.data);
                     handleMessage(data);
 
-
                     if (data.type === "pong") {
                         reconnectAttempts = 0;
+                    } else if (data.type === "connected_users_count") {
+
+                        connectedUsersCountSpan.textContent = `(${data.count})`;
                     }
                 } catch (error) {
                     console.error("Failed to parse WebSocket message:", error);
@@ -660,15 +668,11 @@
 
             socket.onclose = function (event) {
                 updateConnectionStatus("disconnected", "Disconnected");
-
-
-
-
+                connectedUsersCountSpan.textContent = "";
 
                 if (!event.wasClean && event.code !== 1000 && reconnectAttempts < maxReconnectAttempts) {
                     reconnectAttempts++;
                     addSystemMessage(`Connection lost. Reconnecting... (${reconnectAttempts}/${maxReconnectAttempts})`, "warn");
-
 
                     const backoffDelay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
                     setTimeout(connect, backoffDelay);
@@ -684,15 +688,26 @@
                 addSystemMessage("Connection error occurred.", "error");
             };
         }
-
         function updateConnectionStatus(status, text) {
             statusIndicator.className = `status-indicator ${status}`;
-            statusIndicator.querySelector('span').textContent = text;
-        } function handleKeyPress(event) {
+            const span = statusIndicator.querySelector('span');
+
+            if (span.childNodes.length > 0) {
+                if (span.childNodes[0].nodeType === Node.TEXT_NODE) {
+                    span.childNodes[0].nodeValue = text;
+                } else {
+                    span.insertBefore(document.createTextNode(text), span.firstChild);
+                }
+            } else {
+                span.textContent = text;
+            }
+        }
+        function handleKeyPress(event) {
             if (event.key === 'Enter') {
                 addChannel();
             }
-        } function addChannel() {
+        }
+        function addChannel() {
             const channelName = channelInput.value.trim().toLowerCase();
 
             if (!channelName) {
@@ -724,7 +739,8 @@
             channelInput.value = '';
 
             addSystemMessageToChannel(channelName, `Joining channel: ${channelName}`, "info");
-        } function addVideo() {
+        }
+        function addVideo() {
             const channelName = channelInput.value.trim().toLowerCase();
 
             if (!channelName) {
