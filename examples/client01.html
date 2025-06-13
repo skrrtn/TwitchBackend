@@ -603,8 +603,15 @@
         <div class="channel-input-section">
             <input type="text" id="channelInput" class="channel-input"
                 placeholder="Enter Twitch channel name (e.g., ninja, shroud)" onkeypress="handleKeyPress(event)">
-            <button id="addBtn" class="add-btn" onclick="addChannel()">💬 Add Chat</button>
-            <button id="addVideoBtn" class="add-btn" onclick="addVideo()">📹 Add Video</button>
+            <button id="addBtn" class="add-btn" onclick="addChannel()" title="Add Chat">
+                <span aria-label="Add Chat" role="img">💬</span>
+            </button>
+            <button id="addVideoBtn" class="add-btn" onclick="addVideo()" title="Add Video">
+                <span aria-label="Add Video" role="img">📹</span>
+            </button>
+            <button id="addChatVideoBtn" class="add-btn" onclick="addChatAndVideo()" title="Add Chat and Video">
+                <span aria-label="Add Chat and Video" role="img">💬+📹</span>
+            </button>
         </div>
 
         <div id="statusIndicator" class="status-indicator disconnected">
@@ -722,12 +729,12 @@
         }
         function handleKeyPress(event) {
             if (event.key === 'Enter') {
-                addChannel();
+                const channelName = channelInput.value.trim().toLowerCase();
+                addChannel(channelName);
+                channelInput.value = '';
             }
         }
-        function addChannel() {
-            const channelName = channelInput.value.trim().toLowerCase();
-
+        function addChannel(channelName) {
             if (!channelName) {
                 alert("Please enter a channel name");
                 return;
@@ -754,13 +761,9 @@
 
             socket.send(JSON.stringify({ command: "join_channel", channel: channelName }));
 
-            channelInput.value = '';
-
             addSystemMessageToChannel(channelName, `Joining channel: ${channelName}`, "info");
         }
-        function addVideo() {
-            const channelName = channelInput.value.trim().toLowerCase();
-
+        function addVideo(channelName) {
             if (!channelName) {
                 alert("Please enter a channel name");
                 return;
@@ -779,9 +782,27 @@
             container.style.order = currentCount - 1;
 
             updateGridLayout();
-
-            channelInput.value = '';
-        } function removeChannel(channelName) {
+        }
+        function addChatAndVideo() {
+            const channelName = channelInput.value.trim().toLowerCase();
+            if (!channelName) {
+                alert("Please enter a channel name");
+                return;
+            }
+            let added = false;
+            if (!channels.has(channelName)) {
+                addChannel(channelName);
+                added = true;
+            }
+            if (!videos.has(channelName)) {
+                addVideo(channelName);
+                added = true;
+            }
+            if (added) {
+                channelInput.value = '';
+            }
+        }
+        function removeChannel(channelName) {
             if (!channels.has(channelName)) return;
 
             if (socket && socket.readyState === WebSocket.OPEN) {
