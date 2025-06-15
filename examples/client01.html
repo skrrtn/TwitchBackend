@@ -602,11 +602,10 @@
         </div>
         <div class="channel-input-section">
             <input type="text" id="channelInput" class="channel-input"
-                placeholder="Enter Twitch channel name (e.g., ninja, shroud)" onkeypress="handleKeyPress(event)">
-            <button id="addBtn" class="add-btn" onclick="addChannel()" title="Add Chat">
+                placeholder="Enter Twitch channel name (e.g., ninja, shroud)" onkeypress="handleKeyPress(event)">            <button id="addBtn" class="add-btn" onclick="addChannelFromInput()" title="Add Chat">
                 <span aria-label="Add Chat" role="img">💬</span>
             </button>
-            <button id="addVideoBtn" class="add-btn" onclick="addVideo()" title="Add Video">
+            <button id="addVideoBtn" class="add-btn" onclick="addVideoFromInput()" title="Add Video">
                 <span aria-label="Add Video" role="img">📹</span>
             </button>
             <button id="addChatVideoBtn" class="add-btn" onclick="addChatAndVideo()" title="Add Chat and Video">
@@ -729,11 +728,22 @@
         }
         function handleKeyPress(event) {
             if (event.key === 'Enter') {
-                const channelName = channelInput.value.trim().toLowerCase();
-                addChannel(channelName);
-                channelInput.value = '';
+                addChannelFromInput();
             }
         }
+        
+        function addChannelFromInput() {
+            const channelName = channelInput.value.trim().toLowerCase();
+            addChannel(channelName);
+            channelInput.value = '';
+        }
+        
+        function addVideoFromInput() {
+            const channelName = channelInput.value.trim().toLowerCase();
+            addVideo(channelName);
+            channelInput.value = '';
+        }
+        
         function addChannel(channelName) {
             if (!channelName) {
                 alert("Please enter a channel name");
